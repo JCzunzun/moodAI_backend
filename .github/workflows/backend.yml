@@ -33,10 +33,31 @@ jobs:
           exit 1
         fi
     
+    # Configure Maven compiler para usar Java 17
+    - name: Configure Maven Compiler Plugin
+      run: |
+        if [ -f "pom.xml" ]; then
+          echo "Configurando Maven para Java 17..."
+          # Verificar si ya existe la configuración del plugin de compilador
+          if grep -q "<maven.compiler.source>" pom.xml; then
+            # Actualizar las propiedades existentes
+            sed -i 's/<maven.compiler.source>[0-9]*<\/maven.compiler.source>/<maven.compiler.source>17<\/maven.compiler.source>/g' pom.xml
+            sed -i 's/<maven.compiler.target>[0-9]*<\/maven.compiler.target>/<maven.compiler.target>17<\/maven.compiler.target>/g' pom.xml
+          else
+            # Agregar las propiedades si no existen
+            sed -i '/<\/properties>/i \    <maven.compiler.source>17<\/maven.compiler.source>\n    <maven.compiler.target>17<\/maven.compiler.target>' pom.xml
+          fi
+          
+          # Verificar si existe configuración explícita del plugin
+          if grep -q "<artifactId>maven-compiler-plugin</artifactId>" pom.xml; then
+            sed -i 's/<release>[0-9]*<\/release>/<release>17<\/release>/g' pom.xml
+          fi
+        fi
+    
     # Build con Maven
     - name: Build with Maven
       if: steps.check-build.outputs.build-system == 'maven'
-      run: mvn -B clean package --file pom.xml
+      run: mvn -B clean package --file pom.xml -Dmaven.compiler.release=17
       
     # Build con Gradle
     - name: Build with Gradle
@@ -48,7 +69,7 @@ jobs:
     # Ejecutar tests
     - name: Run tests
       if: steps.check-build.outputs.build-system == 'maven'
-      run: mvn test
+      run: mvn test -Dmaven.compiler.release=17
       
     - name: Run tests with Gradle
       if: steps.check-build.outputs.build-system == 'gradle'
