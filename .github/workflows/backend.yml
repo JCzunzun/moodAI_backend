@@ -1,0 +1,64 @@
+name: Spring Boot CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+        
+    # Determinar si el proyecto usa Maven o Gradle
+    - name: Check build system
+      id: check-build
+      run: |
+        if [ -f "pom.xml" ]; then
+          echo "build-system=maven" >> $GITHUB_OUTPUT
+        elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+          echo "build-system=gradle" >> $GITHUB_OUTPUT
+        else
+          echo "No se encontró un sistema de build compatible"
+          exit 1
+        fi
+    
+    # Build con Maven
+    - name: Build with Maven
+      if: steps.check-build.outputs.build-system == 'maven'
+      run: mvn -B clean package --file pom.xml
+      
+    # Build con Gradle
+    - name: Build with Gradle
+      if: steps.check-build.outputs.build-system == 'gradle'
+      run: |
+        chmod +x ./gradlew
+        ./gradlew build
+    
+    # Ejecutar tests
+    - name: Run tests
+      if: steps.check-build.outputs.build-system == 'maven'
+      run: mvn test
+      
+    - name: Run tests with Gradle
+      if: steps.check-build.outputs.build-system == 'gradle'
+      run: ./gradlew test
+      
+    # Guardar los artefactos
+    - name: Store artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: spring-boot-jar
+        path: |
+          **/target/*.jar
+          **/build/libs/*.jar
